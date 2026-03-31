@@ -631,4 +631,5 @@ export default function WelcomePage() {
       `}</style>
     </div>
   );
+  
 }
