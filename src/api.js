@@ -1,9 +1,24 @@
 import axios from 'axios';
 
+// FIX: VITE_API_URL MUST be set in your Vercel environment variables.
+// Without it the fallback '/api' is a relative URL that points to Vercel
+// (your frontend host) instead of your Render backend — causing all API
+// calls to silently 404.
+//
+// In Vercel dashboard → Settings → Environment Variables, add:
+//   VITE_API_URL = https://your-backend.onrender.com/api
+//
+// Note: the baseURL already includes /api, so call routes without it:
+//   api.get('/recommend/movies')  →  https://your-backend.onrender.com/api/recommend/movies ✅
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
-timeout: 20000,
+  // FIX: Increased from 20s → 35s.
+  // The Node backend waits up to 30s for the Python service (cold start /
+  // model download from Google Drive). The frontend must wait longer than
+  // the backend, otherwise the frontend cancels the request before the
+  // backend gets a chance to respond.
+  timeout: 35000,
 });
 
 // ── Request: inject stored JWT ────────────────────────────────────────────────
