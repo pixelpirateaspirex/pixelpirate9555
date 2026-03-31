@@ -462,7 +462,15 @@ export default function HomePage() {
 
   const [trending, setTrending] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [slideIdx, setSlideIdx] = useState(0);   // manual-only; no auto-advance
+const [slideIdx, setSlideIdx] = useState(0);
+
+// Auto-advance hero slides every 2 seconds
+useEffect(() => {
+  const timer = setInterval(() => {
+    setSlideIdx(prev => (prev + 1) % HERO_SLIDES.length);
+  }, 2000);
+  return () => clearInterval(timer);
+}, []);
 
   /* Parallax hero */
   const heroRef = useRef(null);
