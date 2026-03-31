@@ -34,13 +34,21 @@ export function ListsProvider({ children }) {
         api.get('/lists/reading'),
         api.get('/lists/songs'),
       ]);
-      setWatchlist(wl.data || []);
-      setReadingList(rl.data || []);
-      setSongsHeard(sl.data || []);
+
+      // ✅ FIX: Backend returns { success: true, data: [...] }
+      // Axios wraps response in .data, so the array lives at .data.data
+      const wlData = Array.isArray(wl.data?.data) ? wl.data.data : [];
+      const rlData = Array.isArray(rl.data?.data) ? rl.data.data : [];
+      const slData = Array.isArray(sl.data?.data) ? sl.data.data : [];
+
+      setWatchlist(wlData);
+      setReadingList(rlData);
+      setSongsHeard(slData);
+
       if (uid) {
-        LS.set(cKey(uid,'wl'), wl.data);
-        LS.set(cKey(uid,'rl'), rl.data);
-        LS.set(cKey(uid,'sl'), sl.data);
+        LS.set(cKey(uid,'wl'), wlData);
+        LS.set(cKey(uid,'rl'), rlData);
+        LS.set(cKey(uid,'sl'), slData);
       }
     } catch {
       // fallback to local cache
@@ -137,7 +145,6 @@ export function ListsProvider({ children }) {
 
   // ── SONGS HEARD ───────────────────────────────────────────────────────────
   const trackSong = useCallback(async (song) => {
-    // Don't double-add the same track in the last 5 min
     const recent = songsHeard[0];
     if (recent && recent.trackId === song.trackId && Date.now() - recent.ts < 300_000) return;
     const entry = { ...song, ts: Date.now() };
