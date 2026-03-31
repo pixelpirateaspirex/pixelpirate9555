@@ -1,0 +1,469 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:          #07101f;
+  --bg2:         #0f1a2e;
+  --surface:     rgba(255,255,255,0.05);
+  --border:      rgba(255,255,255,0.09);
+  --text:        #eef2f9;
+  --text2:       #7c8fa6;
+  --accent:      #f5c542;
+  --accent-dk:   #c9971a;
+  --accent-glow: rgba(245,197,66,0.12);
+  --header-bg:   rgba(7,16,31,0.96);
+  --input-bg:    rgba(255,255,255,0.06);
+  --modal-bg:    #0d1929;
+  --card-radius: 14px;
+  --shadow:      0 12px 48px rgba(0,0,0,0.55);
+  --success:     #10b981;
+  --danger:      #ef4444;
+  --warn:        #f59e0b;
+  --nav-h:       64px;
+}
+
+body.light {
+  --bg:          #f4efe3;
+  --bg2:         #ede7d8;
+  --surface:     rgba(255,255,255,0.75);
+  --border:      rgba(0,0,0,0.1);
+  --text:        #16213e;
+  --text2:       #566075;
+  --accent:      #c5881a;
+  --accent-dk:   #9a6612;
+  --accent-glow: rgba(197,136,26,0.1);
+  --header-bg:   rgba(244,239,227,0.97);
+  --input-bg:    rgba(0,0,0,0.05);
+  --modal-bg:    #ede7d8;
+  --shadow:      0 10px 40px rgba(0,0,0,0.12);
+}
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-syne { font-family: 'Syne', sans-serif; }
+
+a { color: inherit; text-decoration: none; }
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Layout helpers ─────────────────────────────────────────────────────────── */
+.container { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+.page-pad  { padding-top: calc(var(--nav-h) + 2rem); padding-bottom: 4rem; }
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow);
+  border-color: rgba(245,197,66,0.3);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.4rem; border: none; border-radius: 2rem; cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-weight: 600;
+  transition: 0.2s; white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent); color: #07101f;
+  padding: 0.72rem 1.6rem; font-size: 0.92rem;
+}
+.btn-primary:hover { background: var(--accent-dk); transform: translateY(-1px); }
+.btn-secondary {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  padding: 0.68rem 1.4rem; font-size: 0.88rem;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text2);
+  padding: 0.55rem 1.1rem; font-size: 0.84rem;
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.btn-danger {
+  background: var(--danger); color: #fff;
+  padding: 0.55rem 1.1rem; font-size: 0.84rem;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+/* ── Forms ──────────────────────────────────────────────────────────────────── */
+.form-group { margin-bottom: 1rem; }
+.form-group label {
+  display: block; margin-bottom: 0.35rem;
+  font-size: 0.84rem; font-weight: 500; color: var(--text2);
+}
+.form-control {
+  width: 100%; padding: 0.72rem 1rem;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text);
+  font-family: 'Outfit', sans-serif; font-size: 0.9rem;
+  outline: none; transition: 0.2s;
+}
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.form-control::placeholder { color: var(--text2); }
+.form-error { font-size: 0.78rem; color: var(--danger); margin-top: 0.3rem; }
+.form-success {
+  font-size: 0.82rem; color: var(--success); margin-top: 0.4rem;
+  padding: 0.6rem 1rem; background: rgba(16,185,129,0.1);
+  border-radius: 8px; border: 1px solid rgba(16,185,129,0.2);
+}
+
+/* ── Modals ─────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; animation: fadeIn 0.2s ease;
+}
+.modal-box {
+  background: var(--modal-bg); border: 1px solid var(--border);
+  border-radius: calc(var(--card-radius)*1.4); padding: 2rem;
+  max-width: 460px; width: 94%; max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow); position: relative;
+  animation: slideUp 0.25s cubic-bezier(0.34,1.3,0.64,1);
+}
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── Toast ──────────────────────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;
+  align-items: center; pointer-events: none;
+}
+.toast {
+  background: var(--bg2); border: 1px solid var(--border); color: var(--text);
+  padding: 0.75rem 1.5rem; border-radius: 2rem; font-size: 0.85rem;
+  max-width: 90vw; animation: toastIn 0.3s ease;
+  white-space: nowrap;
+}
+.toast.success { border-color: var(--success); color: var(--success); }
+.toast.error   { border-color: var(--danger);  color: var(--danger);  }
+.toast.info    { border-color: var(--accent);   color: var(--accent);  }
+@keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Section headings ──────────────────────────────────────────────────────── */
+.section-title {
+  font-family: 'Syne', sans-serif; font-size: 1.7rem; font-weight: 700;
+  margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem;
+  letter-spacing: -0.5px;
+}
+.section-title i, .section-title .icon { color: var(--accent); font-size: 1.3rem; }
+
+/* ── Grid helpers ───────────────────────────────────────────────────────────── */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px,1fr)); gap: 1.2rem; }
+.loader-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem; padding: 4rem; color: var(--text2); }
+.spinner { width: 2rem; height: 2rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Dropdown ───────────────────────────────────────────────────────────────── */
+.dropdown-menu {
+  position: absolute; top: calc(100% + 0.5rem); left: 50%;
+  transform: translateX(-50%);
+  background: var(--modal-bg); border: 1px solid var(--border);
+  border-radius: var(--card-radius); padding: 0.5rem;
+  min-width: 200px; box-shadow: var(--shadow);
+  animation: dropDown 0.18s cubic-bezier(0.34,1.3,0.64,1);
+  z-index: 400;
+}
+@keyframes dropDown { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+.dropdown-item {
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0.6rem 0.85rem; border-radius: 8px; font-size: 0.88rem;
+  color: var(--text2); cursor: pointer; transition: 0.15s; text-decoration: none;
+}
+.dropdown-item:hover { background: var(--accent-glow); color: var(--accent); }
+.dropdown-item .di-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+
+/* ── Page transition ────────────────────────────────────────────────────────── */
+.page-enter { animation: pageIn 0.3s ease; }
+@keyframes pageIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Misc ───────────────────────────────────────────────────────────────────── */
+.divider-or {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 0.3rem 0; color: var(--text2); font-size: 0.75rem;
+  font-weight: 600; letter-spacing: 0.06em;
+}
+.divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--accent); color: #07101f;
+  padding: 0.15rem 0.55rem; border-radius: 2rem;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+}
+.badge.success { background: var(--success); color: #fff; }
+.badge.surface { background: var(--surface); color: var(--text2); border: 1px solid var(--border); }
+
+@media (max-width: 768px) {
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(145px,1fr)); gap: 1rem; }
+  .section-title { font-size: 1.4rem; }
+}
+@media (max-width: 480px) {
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 0.8rem; }
+}
+
+
+
+/* ── Light theme overrides ─────────────────────────────────────────────────── */
+
+/* Hero text must stay light — it sits on a dark image regardless of theme */
+body.light .hero-title,
+body.light .hero-headline,
+body.light .hero h1,
+body.light .hero h2 {
+  color: #eef2f9 !important;
+}
+
+body.light .hero-sub,
+body.light .hero p {
+  color: rgba(238,242,249,0.85) !important;
+}
+
+/* Chatbot panel */
+body.light .chatbot-panel,
+body.light .chat-window,
+body.light .chatbot-box {
+  background: #fff;
+  border-color: rgba(0,0,0,0.12);
+  color: #16213e;
+}
+
+body.light .chatbot-header,
+body.light .chat-header {
+  background: #ede7d8;
+  color: #16213e;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Fix any hardcoded white text leaking into light surfaces */
+body.light .modal-box,
+body.light .dropdown-menu {
+  color: var(--text);
+}
+
+/* Input fields in light mode */
+body.light .form-control {
+  background: rgba(0,0,0,0.05);
+  color: #16213e;
+  border-color: rgba(0,0,0,0.15);
+}
+
+body.light .form-control::placeholder {
+  color: #8a95a3;
+}
+
+/* Card hover border in light mode */
+body.light .card:hover {
+  border-color: rgba(197,136,26,0.4);
+}
+
+
+/* ── Light theme targeted fixes ────────────────────────────────────────────── */
+
+/* HERO: always sits on dark image overlay — force light text in both themes */
+.hero-heading,
+.hero-sub,
+.hero-badge,
+.hero-dot {
+  color: #eef2f9;
+}
+body.light .hero-badge {
+  color: var(--accent);
+}
+body.light .hero-sub {
+  color: rgba(238,242,249,0.82);
+}
+
+/* CHATBOT: header is always dark (hardcoded gradient) — force light text always */
+.chat-head,
+.chat-head * {
+  color: #eef2f9 !important;
+}
+.chat-head-sub {
+  color: rgba(238,242,249,0.55) !important;
+}
+.chat-icon-btn {
+  color: rgba(238,242,249,0.6) !important;
+}
+.chat-icon-btn:hover {
+  color: #eef2f9 !important;
+  background: rgba(255,255,255,0.1) !important;
+}
+
+/* CHATBOT: status bar + suggestions + footer in light mode */
+body.light .chat-status {
+  background: rgba(0,0,0,0.06);
+  color: var(--text2);
+}
+body.light .chat-suggestions {
+  background: rgba(0,0,0,0.04);
+}
+body.light .chat-foot {
+  background: rgba(0,0,0,0.04);
+}
+
+/* CHATBOT: bot bubble text in light mode */
+body.light .chat-msg.bot .chat-bubble {
+  background: rgba(255,255,255,0.85);
+  color: #16213e;
+  border-color: rgba(0,0,0,0.1);
+}
+
+/* CHATBOT: input in light mode */
+body.light .chat-input {
+  background: rgba(255,255,255,0.9);
+  color: #16213e;
+  border-color: rgba(0,0,0,0.15);
+}
+body.light .chat-input::placeholder {
+  color: #8a95a3;
+}
+
+/* ── Light theme targeted fixes ────────────────────────────────────────────── */
+
+/* HERO: always on dark image — force white text in BOTH themes */
+.home-hero .hero-heading {
+  color: #eef2f9 !important;
+}
+.home-hero .hero-sub {
+  color: rgba(238,242,249,0.82) !important;
+}
+.home-hero .hero-badge {
+  color: var(--accent) !important;
+}
+
+/* HERO BUTTONS: btn-secondary becomes invisible in light mode on dark bg */
+body.light .home-hero .btn-secondary {
+  color: #eef2f9 !important;
+  border-color: rgba(238,242,249,0.45) !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+body.light .home-hero .btn-secondary:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: rgba(197,136,26,0.15) !important;
+}
+
+/* CHATBOT HEADER: hardcoded dark bg — force light text always */
+.chat-head,
+.chat-head-name,
+.chat-head-sub,
+.chat-ai-badge {
+  color: #eef2f9 !important;
+}
+.chat-head-sub {
+  color: rgba(238,242,249,0.55) !important;
+}
+.chat-icon-btn {
+  color: rgba(238,242,249,0.6) !important;
+}
+.chat-icon-btn:hover {
+  color: #eef2f9 !important;
+  background: rgba(255,255,255,0.1) !important;
+}
+
+/* CHATBOT BODY: light mode panel internals */
+body.light .chat-status {
+  background: rgba(0,0,0,0.05);
+  color: var(--text2);
+}
+body.light .chat-msg.bot .chat-bubble {
+  background: rgba(255,255,255,0.9);
+  color: #16213e;
+  border-color: rgba(0,0,0,0.1);
+}
+body.light .chat-suggestions {
+  background: rgba(0,0,0,0.04);
+}
+body.light .chat-foot {
+  background: rgba(0,0,0,0.04);
+}
+body.light .chat-input {
+  background: rgba(255,255,255,0.9);
+  color: #16213e;
+  border-color: rgba(0,0,0,0.15);
+}
+body.light .chat-input::placeholder {
+  color: #8a95a3;
+}
+
+
+/* ── Team cards: always dark bg — force light text always ─────────────────── */
+.team-card,
+.member-card {
+  background: #0d1929 !important;
+}
+
+.team-card *,
+.member-card * {
+  color: #eef2f9 !important;
+}
+
+/* Keep accent/badge colors intact */
+.team-card .role-badge,
+.team-card [class*="badge"],
+.team-card [class*="role"] {
+  color: #07101f !important;
+  background: var(--accent) !important;
+}
+
+
+/* ── TeamPage: overlays are always dark — force white text always ─────────── */
+
+/* Grid card bottom name strip */
+.tg-meta {
+  background: linear-gradient(to top, rgba(7,16,31,0.88) 100%, transparent) !important;
+}
+.tg-mname  { color: #eef2f9 !important; }
+.tg-mrole  { color: rgba(238,242,249,0.6) !important; }
+
+/* President card overlay */
+.tp-pres-overlay {
+  background: linear-gradient(to top, rgba(7,16,31,0.92) 60%, transparent) !important;
+}
+.tp-pres-name { color: #eef2f9 !important; }
+
+/* Hover domain overlay */
+.tg-overlay {
+  background: linear-gradient(to top, rgba(7,16,31,0.88) 55%, transparent) !important;
+}
+
+/* Light mode: card backgrounds should be white not --bg2 */
+body.light .tg-card {
+  background: #1a2540;
+  border-color: rgba(255,255,255,0.08);
+}
+body.light .tp-pres-img-wrap {
+  background: #1a2540;
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* Section labels and hero text in light mode are fine via var(--text) */
+/* but add contrast boost just in case */
+body.light .tp-label-text { color: #16213e; }
+body.light .tp-title      { color: #16213e; }
