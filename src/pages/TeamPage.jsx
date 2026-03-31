@@ -14,7 +14,7 @@ import satyamPhoto        from "../assets/Satyam Sharma.jpeg";
 import tishirPhoto        from "../assets/Tishir Raymond.jpeg";
 import mayankbhumankarPhoto from "../assets/Mayank Bhumarkar.jpeg";
 import rishabPhoto        from "../assets/Rishab Jatt.jpeg";
-import Jitesh        from "../assets/jitesh.jpeg";
+import Jitesh        from "../assets/Jitesh.jpeg";
 
 const PH    = (name) => `https://placehold.co/400x500/07101f/f5c542?text=${encodeURIComponent(name.split(" ")[0])}`;
 const PH_SQ = (name) => `https://placehold.co/300x300/07101f/f5c542?text=${encodeURIComponent(name.split(" ")[0])}`;

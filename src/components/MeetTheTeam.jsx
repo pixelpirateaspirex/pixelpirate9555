@@ -14,6 +14,8 @@ import satyamPhoto       from "../assets/Satyam Sharma.jpeg";
 import tishirPhoto       from "../assets/Tishir Raymond.jpeg";
 import mayankbhumankarPhoto from "../assets/Mayank Bhumarkar.jpeg";
 import rishabPhoto       from "../assets/Rishab Jatt.jpeg";
+import Jitesh        from "../assets/Jitesh.jpeg";
+
 
 const PH = (name) =>
   `https://placehold.co/200x200/07101f/f5c542?text=${encodeURIComponent(name.split(" ")[0])}`;
@@ -32,7 +34,7 @@ const TEAM_MEMBERS = [
   { id: 11, name: "Palak Khare",        role: "Core",      tier: "core",      domains: ["AI/ML Engineer"],                   photo: palakPhoto },
   { id: 12, name: "Raksha Kushwaha",    role: "Core",      tier: "core",      domains: ["Visual Artist"],                    photo: rakshaPhoto },
   { id: 13, name: "Mayank Bhumarkar",   role: "Core",      tier: "core",      domains: ["Visual Artist"],                    photo: mayankbhumankarPhoto },
-  { id: 14, name: "Jitesh Dhanware",    role: "Core",      tier: "core",      domains: ["AI/ML Engineer"],                   photo: PH("Jitesh Dhanware") },
+  { id: 14, name: "Jitesh Dhanware",    role: "Core",      tier: "core",      domains: ["AI/ML Engineer"],                   photo: Jitesh },
 ];
 
 /* Duplicate for seamless infinite scroll */
