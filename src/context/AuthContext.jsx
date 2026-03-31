@@ -17,8 +17,8 @@ import api, { setToken, clearToken, getToken } from '../utils/api';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null);   // backend user object (includes onboarded)
-  const [fbUser,  setFbUser]  = useState(null);   // firebase user
+  const [user,    setUser]    = useState(null);
+  const [fbUser,  setFbUser]  = useState(null);
   const [loading, setLoading] = useState(true);
 
   // ── Sync Firebase user → backend, get JWT + onboarding status ─────────────
@@ -26,15 +26,24 @@ export function AuthProvider({ children }) {
     try {
       const idToken = await firebaseUser.getIdToken(true);
       const { data } = await api.post('/auth/firebase', { idToken });
+
+      // ✅ FIX: Store token FIRST before any subsequent calls
       setToken(data.token);
 
-      // Fetch preferences to know if user has completed onboarding
+      // ✅ FIX: Pass token explicitly in header to avoid race condition
+      //         where localStorage hasn't been read yet by the interceptor
       let onboarded = false;
       try {
-        const prefRes = await api.get('/preferences');
+        const prefRes = await api.get('/preferences', {
+          headers: { Authorization: `Bearer ${data.token}` },
+        });
         onboarded = prefRes.data?.preferences?.onboarded || false;
-      } catch {
-        // Non-fatal — treat as not onboarded
+      } catch (prefErr) {
+        // 404 = no preferences yet (new user) — not onboarded, that's fine
+        // 401 = token issue — non-fatal, treat as not onboarded
+        if (prefErr.response?.status !== 404 && prefErr.response?.status !== 401) {
+          console.warn('Unexpected preferences error:', prefErr.message);
+        }
       }
 
       const enrichedUser = { ...data.user, onboarded };
@@ -141,10 +150,6 @@ export function AuthProvider({ children }) {
     } catch {}
   }, [fbUser]);
 
-  /**
-   * Called by WelcomePage after successful onboarding save.
-   * Updates the in-memory user so App.jsx stops redirecting to /welcome.
-   */
   const markOnboarded = useCallback(() => {
     setUser((prev) => prev ? { ...prev, onboarded: true } : prev);
   }, []);
