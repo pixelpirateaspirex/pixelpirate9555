@@ -15,6 +15,19 @@ const LS = {
 };
 const cKey = (uid, type) => `pp_list_${uid}_${type}`;
 
+/**
+ * ✅ Safety guard — always returns a plain array no matter what.
+ * Handles:
+ *  - correct format:  [...] → returns as-is
+ *  - old bad cache:   { success, data: [...] } → extracts .data
+ *  - null/undefined   → returns []
+ */
+function toArray(val) {
+  if (Array.isArray(val)) return val;
+  if (val && Array.isArray(val.data)) return val.data;
+  return [];
+}
+
 export function ListsProvider({ children }) {
   const { user, isLoggedIn } = useAuth();
   const uid = user?.uid || user?.email || null;
@@ -35,11 +48,12 @@ export function ListsProvider({ children }) {
         api.get('/lists/songs'),
       ]);
 
-      // ✅ FIX: Backend returns { success: true, data: [...] }
-      // Axios wraps response in .data, so the array lives at .data.data
-      const wlData = Array.isArray(wl.data?.data) ? wl.data.data : [];
-      const rlData = Array.isArray(rl.data?.data) ? rl.data.data : [];
-      const slData = Array.isArray(sl.data?.data) ? sl.data.data : [];
+      // Backend returns { success: true, data: [...] }
+      // Axios wraps that in .data → array lives at response.data.data
+      // toArray handles any format safely
+      const wlData = toArray(wl.data?.data ?? wl.data);
+      const rlData = toArray(rl.data?.data ?? rl.data);
+      const slData = toArray(sl.data?.data ?? sl.data);
 
       setWatchlist(wlData);
       setReadingList(rlData);
@@ -51,11 +65,11 @@ export function ListsProvider({ children }) {
         LS.set(cKey(uid,'sl'), slData);
       }
     } catch {
-      // fallback to local cache
+      // fallback to local cache — toArray guards old bad format too
       if (uid) {
-        setWatchlist(LS.get(cKey(uid,'wl')) || []);
-        setReadingList(LS.get(cKey(uid,'rl')) || []);
-        setSongsHeard(LS.get(cKey(uid,'sl')) || []);
+        setWatchlist(toArray(LS.get(cKey(uid,'wl'))));
+        setReadingList(toArray(LS.get(cKey(uid,'rl'))));
+        setSongsHeard(toArray(LS.get(cKey(uid,'sl'))));
       }
     } finally {
       setSyncing(false);
@@ -64,10 +78,10 @@ export function ListsProvider({ children }) {
 
   useEffect(() => {
     if (isLoggedIn && uid) {
-      // Show cached immediately, then fetch fresh
-      setWatchlist(LS.get(cKey(uid,'wl')) || []);
-      setReadingList(LS.get(cKey(uid,'rl')) || []);
-      setSongsHeard(LS.get(cKey(uid,'sl')) || []);
+      // Show cached immediately — toArray fixes any old bad cached format
+      setWatchlist(toArray(LS.get(cKey(uid,'wl'))));
+      setReadingList(toArray(LS.get(cKey(uid,'rl'))));
+      setSongsHeard(toArray(LS.get(cKey(uid,'sl'))));
       fetchAll();
     } else {
       setWatchlist([]);

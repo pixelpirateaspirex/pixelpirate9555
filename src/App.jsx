@@ -1,8 +1,7 @@
 // src/App.jsx
 import {
-  BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate,
+  BrowserRouter, Routes, Route, Navigate, useLocation,
 } from 'react-router-dom';
-import { useEffect } from 'react';
 
 import { ToastProvider }  from './context/ToastContext';
 import { AuthProvider }   from './context/AuthContext';
@@ -41,8 +40,8 @@ import { AboutPage, ContactPage } from './pages/AboutPage';
 
 /**
  * ProtectedRoute — requires login.
- * If logged in but NOT onboarded, silently redirects to /welcome FIRST.
- * The /welcome route itself must not trigger this (it IS the onboarding page).
+ * FIX: If logged in but NOT onboarded → redirect to /welcome automatically.
+ * skipOnboardingCheck is ONLY used internally by WelcomeGuard to avoid loops.
  */
 function ProtectedRoute({ children, skipOnboardingCheck = false }) {
   const { isLoggedIn, loading, user } = useAuth();
@@ -51,7 +50,7 @@ function ProtectedRoute({ children, skipOnboardingCheck = false }) {
   if (loading) return <PageLoader />;
   if (!isLoggedIn) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
 
-  // Redirect to onboarding if not yet completed (and this isn't the welcome page itself)
+  // FIX: redirect non-onboarded users to /welcome (unless already going there)
   if (!skipOnboardingCheck && user && user.onboarded === false) {
     return <Navigate to="/welcome" replace />;
   }
@@ -60,8 +59,11 @@ function ProtectedRoute({ children, skipOnboardingCheck = false }) {
 }
 
 /**
- * WelcomeGuard — only accessible when logged in AND not yet onboarded.
- * If already onboarded, redirect to /recommendations.
+ * WelcomeGuard — FIX: was defined but never used on the /welcome route.
+ * Now correctly gates /welcome:
+ *  - Not logged in  → /login
+ *  - Already onboarded → /recommendations (skip re-onboarding)
+ *  - Not onboarded  → show WelcomePage ✅
  */
 function WelcomeGuard({ children }) {
   const { isLoggedIn, loading, user } = useAuth();
@@ -69,7 +71,10 @@ function WelcomeGuard({ children }) {
 
   if (loading) return <PageLoader />;
   if (!isLoggedIn) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  if (user?.onboarded) return <Navigate to="/recommendations" replace />;
+
+  // Already completed onboarding → skip back to recommendations
+  if (user?.onboarded === true) return <Navigate to="/recommendations" replace />;
+
   return children;
 }
 
@@ -115,24 +120,33 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
-      {/* ── Onboarding — no Navbar, shown once after first login ─────────── */}
+      {/* ── Onboarding ───────────────────────────────────────────────────── */}
+      {/*
+        FIX: Use WelcomeGuard here (not ProtectedRoute with skipOnboardingCheck).
+        WelcomeGuard:
+          - Requires login
+          - If already onboarded → redirects to /recommendations
+          - Otherwise → shows WelcomePage
+        This means new users are automatically redirected here after login,
+        and returning onboarded users are never shown this page again.
+      */}
       <Route path="/welcome" element={
-  <ProtectedRoute skipOnboardingCheck={true}><WelcomePage /></ProtectedRoute>
+        <WelcomeGuard><WelcomePage /></WelcomeGuard>
       } />
 
       {/* ── Public pages ─────────────────────────────────────────────────── */}
-      <Route path="/"         element={<Layout><HomePage /></Layout>} />
-      <Route path="/movies"   element={<Layout><MoviesPage /></Layout>} />
-      <Route path="/songs"    element={<Layout><SongsPage /></Layout>} />
-      <Route path="/books"    element={<Layout><BooksPage /></Layout>} />
-      <Route path="/games"    element={<Layout><GamesPage /></Layout>} />
-      <Route path="/events"   element={<Layout><EventsPage /></Layout>} />
+      <Route path="/"           element={<Layout><HomePage /></Layout>} />
+      <Route path="/movies"     element={<Layout><MoviesPage /></Layout>} />
+      <Route path="/songs"      element={<Layout><SongsPage /></Layout>} />
+      <Route path="/books"      element={<Layout><BooksPage /></Layout>} />
+      <Route path="/games"      element={<Layout><GamesPage /></Layout>} />
+      <Route path="/events"     element={<Layout><EventsPage /></Layout>} />
       <Route path="/podcasts"   element={<Layout><PodcastsPage /></Layout>} />
       <Route path="/audiobooks" element={<Layout><AudiobooksPage /></Layout>} />
-      <Route path="/team"     element={<Layout><TeamPage /></Layout>} />
-      <Route path="/about"    element={<Layout><AboutPage /></Layout>} />
-      <Route path="/contact"  element={<Layout><ContactPage /></Layout>} />
-      <Route path="/premium"  element={<Layout><PremiumPage /></Layout>} />
+      <Route path="/team"       element={<Layout><TeamPage /></Layout>} />
+      <Route path="/about"      element={<Layout><AboutPage /></Layout>} />
+      <Route path="/contact"    element={<Layout><ContactPage /></Layout>} />
+      <Route path="/premium"    element={<Layout><PremiumPage /></Layout>} />
       <Route path="/premium/success" element={<Layout><PaymentSuccess /></Layout>} />
       <Route path="/premium/cancel"  element={<Layout><PaymentCancel /></Layout>} />
 
@@ -144,7 +158,7 @@ function AppRoutes() {
         <Layout><ProtectedRoute><QuizPage /></ProtectedRoute></Layout>
       } />
 
-      {/* ── Recommendations — protected + premium gate inside the page ────── */}
+      {/* ── Recommendations ──────────────────────────────────────────────── */}
       <Route path="/recommendations" element={
         <Layout>
           <ProtectedRoute><RecommendPage /></ProtectedRoute>

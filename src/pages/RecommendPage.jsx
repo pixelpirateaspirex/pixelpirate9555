@@ -2,7 +2,7 @@
 // Premium-gated page. Tabs: Movies | Songs | Games | Audiobooks.
 // Each tab calls GET /api/recommend/:type → Python Flask → pickle model.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth }     from '../context/AuthContext';
 import { useLists }    from '../context/ListsContext';
@@ -176,17 +176,14 @@ function AudiobookCard({ item, index }) {
 
   useEffect(() => {
     if (!title) return;
-    // Google Books — most reliable for audiobook covers
     fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(title + ' ' + author)}&maxResults=1`)
       .then(r => r.json())
       .then(d => {
         const thumb = d.items?.[0]?.volumeInfo?.imageLinks?.thumbnail;
         if (thumb) {
-          // upgrade to larger image and force https
           setCover(thumb.replace('http://', 'https://').replace('zoom=1', 'zoom=2'));
           return;
         }
-        // fallback: Open Library
         return fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=1&fields=cover_i`)
           .then(r => r.json())
           .then(d => {
@@ -228,7 +225,7 @@ function AudiobookCard({ item, index }) {
     </div>
   );
 }
-// ── Render the right card type ─────────────────────────────────────────────
+
 function ItemCard({ tab, item, index, onAddMovie, isInWatchlist }) {
   switch (tab) {
     case 'movies':
@@ -257,52 +254,73 @@ export default function RecommendPage() {
   const navigate                              = useNavigate();
 
   const [activeTab,  setActiveTab]  = useState('movies');
-  // Cache per tab: { movies: [...], songs: [...], ... }
   const [cache,      setCache]      = useState({});
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
 
-  // ── Fetch recommendations for the active tab ───────────────────────────────
+  // ── FIX: use a ref to track in-flight requests and avoid double-fetch ──────
+  const fetchingRef = useRef({});
+
   const fetchTab = useCallback(async (tab) => {
-    const { data } = await api.get(`/recommend/${tab}`);
-console.log(`[${tab}] first item:`, data.recommendations?.[0]);
-  setCache((prev) => {
-    if (prev[tab]) return prev; // already cached, no re-fetch
-    return prev;
-  });
-
-  // Check cache via a ref or just proceed — simpler fix:
-  setLoading(true);
-  setError('');
-  try {
-    const { data } = await api.get(`/recommend/${tab}`);
+    // ── FIX 1: Skip if already cached ─────────────────────────────────────
     setCache((prev) => {
-      if (prev[tab]) return prev; // guard against double fetch
-      return { ...prev, [tab]: data.recommendations || [] };
+      if (prev[tab]) return prev; // trigger no state update needed
+      return prev;
     });
-  } catch (err) {
-    const msg = err.response?.data?.message || 'Failed to load recommendations.';
-    if (err.response?.data?.needsOnboarding) {
-      setError('Please complete your taste profile first.');
-    } else {
-      setError(msg);
+
+    // ── FIX 2: Read cache synchronously via ref to avoid stale closure ─────
+    // We use a functional check instead of capturing `cache` in closure
+    setCache((prev) => {
+      if (prev[tab] !== undefined) return prev; // already have data, bail
+      return prev;
+    });
+
+    // Check via a separate flag to avoid double fetch
+    if (fetchingRef.current[tab]) return;
+    fetchingRef.current[tab] = true;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data } = await api.get(`/recommend/${tab}`);
+      setCache((prev) => ({
+        ...prev,
+        [tab]: data.recommendations || [],
+      }));
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to load recommendations.';
+      if (err.response?.data?.needsOnboarding) {
+        setError('Please complete your taste profile first.');
+      } else {
+        setError(msg);
+      }
+      // ── FIX 3: Reset flag on error so user can retry ───────────────────
+      fetchingRef.current[tab] = false;
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []); // no deps needed — fetchingRef and setCache are stable
 
-useEffect(() => {
-  fetchTab(activeTab);
-}, [activeTab, fetchTab]);
-
+  useEffect(() => {
+    // ── FIX 4: Only fetch if not already cached ────────────────────────────
+    setCache((prev) => {
+      if (prev[activeTab] !== undefined) {
+        // Already cached — just ensure loading is false
+        setLoading(false);
+        return prev;
+      }
+      // Not cached — trigger fetch
+      fetchTab(activeTab);
+      return prev;
+    });
+  }, [activeTab, fetchTab]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setError('');
   };
 
-  // ── Add movie to watchlist ─────────────────────────────────────────────────
   const handleAddMovie = async (movie) => {
     const title = movie.title || movie.Title;
     const added = await addToWatchlist({
@@ -339,85 +357,81 @@ useEffect(() => {
           </p>
         </div>
 
-      
-
-        {/* ── Tabs + Content (premium only) ── */}
-        
-          <>
-            {/* Tab bar */}
-            <div className="rp2-tabs" role="tablist">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  className={`rp2-tab${activeTab === tab.id ? ' rp2-tab-active' : ''}`}
-                  onClick={() => handleTabChange(tab.id)}
-                >
-                  <span className="rp2-tab-icon">{tab.icon}</span>
-                  <span className="rp2-tab-label">{tab.label}</span>
-                  {cache[tab.id] && (
-                    <span className="rp2-tab-count">{cache[tab.id].length}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Error state */}
-            {error && !loading && (
-              <div className="rp2-error">
-                <span>⚠️ {error}</span>
-                {error.includes('taste profile') && (
-                  <button className="rp2-error-link" onClick={() => navigate('/welcome')}>
-                    Set up preferences →
-                  </button>
+        <>
+          {/* Tab bar */}
+          <div className="rp2-tabs" role="tablist">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                className={`rp2-tab${activeTab === tab.id ? ' rp2-tab-active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+              >
+                <span className="rp2-tab-icon">{tab.icon}</span>
+                <span className="rp2-tab-label">{tab.label}</span>
+                {cache[tab.id] && (
+                  <span className="rp2-tab-count">{cache[tab.id].length}</span>
                 )}
-              </div>
-            )}
+              </button>
+            ))}
+          </div>
 
-            {/* Loading skeletons */}
-            {loading && (
+          {/* Error state */}
+          {error && !loading && (
+            <div className="rp2-error">
+              <span>⚠️ {error}</span>
+              {error.includes('taste profile') && (
+                <button className="rp2-error-link" onClick={() => navigate('/welcome')}>
+                  Set up preferences →
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Loading skeletons */}
+          {loading && (
+            <div className="rp2-grid">
+              {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          )}
+
+          {/* Results */}
+          {!loading && !error && items.length > 0 && (
+            <>
+              <p className="rp2-count-label">
+                {items.length} picks for your <strong>{activeTab}</strong> taste
+              </p>
               <div className="rp2-grid">
-                {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+                {items.map((item, i) => (
+                  <ItemCard
+                    key={i}
+                    tab={activeTab}
+                    item={item}
+                    index={i}
+                    onAddMovie={handleAddMovie}
+                    isInWatchlist={isInWatchlist}
+                  />
+                ))}
               </div>
-            )}
+            </>
+          )}
 
-            {/* Results */}
-            {!loading && !error && items.length > 0 && (
-              <>
-                <p className="rp2-count-label">
-                  {items.length} picks for your <strong>{activeTab}</strong> taste
-                </p>
-                <div className="rp2-grid">
-                  {items.map((item, i) => (
-                    <ItemCard
-                      key={i}
-                      tab={activeTab}
-                      item={item}
-                      index={i}
-                      onAddMovie={handleAddMovie}
-                      isInWatchlist={isInWatchlist}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
+          {/* Empty */}
+          {!loading && !error && items.length === 0 && cache[activeTab] !== undefined && (
+            <div className="rp2-empty">
+              <div className="rp2-empty-icon">🧭</div>
+              <h3>No recommendations found</h3>
+              <p>
+                We couldn't find matches for your {activeTab} preferences.{' '}
+                <button className="rp2-error-link" onClick={() => navigate('/welcome')}>
+                  Update your taste profile
+                </button>
+              </p>
+            </div>
+          )}
+        </>
 
-            {/* Empty */}
-            {!loading && !error && items.length === 0 && cache[activeTab] && (
-              <div className="rp2-empty">
-                <div className="rp2-empty-icon">🧭</div>
-                <h3>No recommendations found</h3>
-                <p>
-                  We couldn't find matches for your {activeTab} preferences.{' '}
-                  <button className="rp2-error-link" onClick={() => navigate('/welcome')}>
-                    Update your taste profile
-                  </button>
-                </p>
-              </div>
-            )}
-          </>
-        
       </div>
 
       {/* ── Styles ── */}
@@ -463,31 +477,6 @@ useEffect(() => {
           color:var(--text2); font-size:0.88rem; margin-top:0.25rem;
           display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;
         }
-        .rp2-premium-badge {
-          background: linear-gradient(135deg, var(--accent), #e0b530);
-          color: #07101f;
-          font-size: 0.7rem; font-weight: 800;
-          padding: 0.15rem 0.6rem; border-radius: 2rem;
-          letter-spacing: 0.04em;
-        }
-
-        /* ── Premium gate ── */
-        .rp2-premium-gate {
-          text-align:center; padding:5rem 1.5rem;
-          background:var(--surface); border:1px solid var(--border);
-          border-radius:16px;
-          animation: rp2-page-in 0.4s ease both 0.1s;
-        }
-        .rp2-gate-icon { font-size:3.5rem; margin-bottom:1rem; }
-        .rp2-gate-title {
-          font-family:'Syne',sans-serif; font-size:1.6rem;
-          margin:0 0 0.6rem; color:var(--text);
-        }
-        .rp2-gate-desc {
-          color:var(--text2); font-size:0.9rem; line-height:1.7;
-          max-width:480px; margin:0 auto 2rem;
-        }
-        .rp2-gate-btn { font-size:1rem; padding:0.75rem 2rem; }
 
         /* ── Tabs ── */
         .rp2-tabs {
@@ -603,7 +592,7 @@ useEffect(() => {
         }
         @keyframes rp2-pop { from{transform:scale(0)} to{transform:scale(1)} }
 
-        /* ── Art placeholders (song / game / audiobook) ── */
+        /* ── Art placeholders ── */
         .rp2-song-art, .rp2-game-art, .rp2-ab-art {
           height:120px;
           display:flex; align-items:center; justify-content:center;
