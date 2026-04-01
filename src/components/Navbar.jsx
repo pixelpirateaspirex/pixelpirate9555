@@ -1,4 +1,4 @@
-// src/components/Navbar.jsx  ── FIXED v3: mobile responsive, no duplicate theme toggle
+// src/components/Navbar.jsx  ── FIXED v4: collapsible mobile sections + improved mobile UI
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -43,12 +43,12 @@ const NAV_MENUS = [
 ];
 
 const MORE_LINKS = [
-  { label: 'My Lists', to: '/lists'           },
-  { label: 'For You',  to: '/recommendations' },
-  { label: 'AI Quiz',  to: '/quiz'            },
-  { label: 'Team',     to: '/team'            },
-  { label: 'About',    to: '/about'           },
-  { label: 'Contact',  to: '/contact'         },
+  { label: 'My Lists', icon: '📋', to: '/lists'           },
+  { label: 'For You',  icon: '✨', to: '/recommendations' },
+  { label: 'AI Quiz',  icon: '🧠', to: '/quiz'            },
+  { label: 'Team',     icon: '👥', to: '/team'            },
+  { label: 'About',    icon: 'ℹ️',  to: '/about'           },
+  { label: 'Contact',  icon: '💬', to: '/contact'         },
 ];
 
 /* ── DropMenu ─────────────────────────────────────────────────────────────── */
@@ -92,6 +92,106 @@ function ScrollProgress() {
   );
 }
 
+/* ── Collapsible Mobile Group ─────────────────────────────────────────────── */
+function MobileGroup({ menu, groupIndex, isOpen, onToggle, onClose }) {
+  const itemCount = menu.items.length;
+  // Each item ~48px + gap, plus padding
+  const contentHeight = itemCount * 52 + 8;
+
+  return (
+    <div
+      className={`pp-mobile-group${isOpen ? ' is-open' : ''}`}
+      style={{ '--group-i': groupIndex }}
+    >
+      <button
+        className="pp-mobile-group-toggle"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <span className="pmg-icon">{menu.icon}</span>
+        <span className="pmg-label">{menu.label}</span>
+        <span className="pmg-count">{itemCount}</span>
+        <span className="pmg-chevron" aria-hidden="true">
+          <svg width="12" height="7" viewBox="0 0 12 7" fill="none">
+            <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
+      </button>
+
+      <div
+        className="pp-mobile-group-body"
+        style={{ maxHeight: isOpen ? `${contentHeight}px` : '0px' }}
+        aria-hidden={!isOpen}
+      >
+        <div className="pp-mobile-group-items">
+          {menu.items.map((item, ii) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="pp-mobile-link"
+              onClick={onClose}
+              style={{ '--link-i': ii, '--total': itemCount }}
+            >
+              <span className="pml-icon">{item.icon}</span>
+              <span className="pml-label">{item.label}</span>
+              <span className="pml-arrow">→</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Collapsible More Group ───────────────────────────────────────────────── */
+function MobileMoreGroup({ groupIndex, isOpen, onToggle, onClose }) {
+  const contentHeight = MORE_LINKS.length * 52 + 8;
+
+  return (
+    <div
+      className={`pp-mobile-group${isOpen ? ' is-open' : ''}`}
+      style={{ '--group-i': groupIndex }}
+    >
+      <button
+        className="pp-mobile-group-toggle pp-mobile-group-toggle--more"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <span className="pmg-icon">⚡</span>
+        <span className="pmg-label">More</span>
+        <span className="pmg-count">{MORE_LINKS.length}</span>
+        <span className="pmg-chevron" aria-hidden="true">
+          <svg width="12" height="7" viewBox="0 0 12 7" fill="none">
+            <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
+      </button>
+
+      <div
+        className="pp-mobile-group-body"
+        style={{ maxHeight: isOpen ? `${contentHeight}px` : '0px' }}
+        aria-hidden={!isOpen}
+      >
+        <div className="pp-mobile-group-items">
+          {MORE_LINKS.map((l, ii) => (
+            <Link
+              key={l.label}
+              to={l.to}
+              className="pp-mobile-link"
+              onClick={onClose}
+              style={{ '--link-i': ii, '--total': MORE_LINKS.length }}
+            >
+              <span className="pml-icon">{l.icon}</span>
+              <span className="pml-label">{l.label}</span>
+              <span className="pml-arrow">→</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Navbar ─────────────────────────────────────────────────────────── */
 export default function Navbar() {
   const { user, isLoggedIn, logout } = useAuth();
@@ -99,13 +199,15 @@ export default function Navbar() {
   const navigate                     = useNavigate();
   const location                     = useLocation();
 
-  const [openMenu,       setOpenMenu]       = useState(null);
-  const [mobileOpen,     setMobileOpen]     = useState(false);
-  const [scrolled,       setScrolled]       = useState(false);
-  const [theme,          setTheme]          = useState(
+  const [openMenu,         setOpenMenu]         = useState(null);
+  const [mobileOpen,       setMobileOpen]       = useState(false);
+  const [scrolled,         setScrolled]         = useState(false);
+  const [theme,            setTheme]            = useState(
     () => localStorage.getItem('pp_theme') || 'dark'
   );
-  const [themeAnimating, setThemeAnimating] = useState(false);
+  const [themeAnimating,   setThemeAnimating]   = useState(false);
+  // Track which mobile sections are expanded — default all collapsed
+  const [openSections,     setOpenSections]     = useState(new Set());
 
   const navRef = useRef(null);
 
@@ -146,7 +248,19 @@ export default function Navbar() {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
   const toggleMenu = (label) => setOpenMenu((prev) => (prev === label ? null : label));
-  const closeAll   = useCallback(() => { setOpenMenu(null); setMobileOpen(false); }, []);
+  const closeAll   = useCallback(() => {
+    setOpenMenu(null);
+    setMobileOpen(false);
+  }, []);
+
+  const toggleSection = useCallback((label) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -244,7 +358,6 @@ export default function Navbar() {
                     }
                     <span className="pp-avatar-ring" aria-hidden="true" />
                   </span>
-                  {/* Username hidden on mobile via CSS */}
                   <span className="pp-username">{shortName}</span>
                   <span className={`pp-chevron pp-chevron--user${openMenu === '__user' ? ' up' : ''}`} aria-hidden="true">
                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -326,13 +439,16 @@ export default function Navbar() {
         aria-hidden="true"
       />
 
-      {/* Mobile nav drawer */}
+      {/* ═══════════════════════════════════════
+          MOBILE NAV DRAWER — improved UI
+      ═══════════════════════════════════════ */}
       <nav
         className={`pp-mobile-nav${mobileOpen ? ' open' : ''}`}
         aria-label="Mobile navigation"
         aria-hidden={!mobileOpen}
         inert={!mobileOpen ? '' : undefined}
       >
+        {/* Header */}
         <div className="pp-mobile-header">
           <span className="pp-mobile-logo">
             <span className="pp-logo-mark">⚓</span>
@@ -345,6 +461,7 @@ export default function Navbar() {
           </button>
         </div>
 
+        {/* User block */}
         {isLoggedIn && (
           <div className="pp-mobile-user">
             <span className="pp-mobile-avatar">
@@ -354,50 +471,34 @@ export default function Navbar() {
               }
             </span>
             <div className="pp-mobile-user-info">
-              <div className="pp-mobile-username">Hey, {displayName}!</div>
+              <div className="pp-mobile-username">Hey, {displayName}! 👋</div>
               <div className="pp-mobile-useremail">{user?.email}</div>
             </div>
           </div>
         )}
 
+        {/* Collapsible body */}
         <div className="pp-mobile-body">
           {NAV_MENUS.map((menu, gi) => (
-            <div key={menu.label} className="pp-mobile-group" style={{ '--group-i': gi }}>
-              <div className="pp-mobile-group-label">{menu.icon} {menu.label}</div>
-              <div className="pp-mobile-group-items">
-                {menu.items.map((item, ii) => (
-                  <Link
-                    key={item.label} to={item.to}
-                    className="pp-mobile-link" onClick={closeAll}
-                    style={{ '--link-i': ii }}
-                  >
-                    <span className="pml-icon">{item.icon}</span>
-                    <span>{item.label}</span>
-                    <span className="pml-arrow">→</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <MobileGroup
+              key={menu.label}
+              menu={menu}
+              groupIndex={gi}
+              isOpen={openSections.has(menu.label)}
+              onToggle={() => toggleSection(menu.label)}
+              onClose={closeAll}
+            />
           ))}
-          <div className="pp-mobile-group" style={{ '--group-i': NAV_MENUS.length }}>
-            <div className="pp-mobile-group-label">⚡ More</div>
-            <div className="pp-mobile-group-items">
-              {MORE_LINKS.map((l, ii) => (
-                <Link
-                  key={l.label} to={l.to}
-                  className={`pp-mobile-link${l.label === 'Team' ? ' pp-mobile-link--team' : ''}`}
-                  onClick={closeAll} style={{ '--link-i': ii }}
-                >
-                  <span className="pml-icon">{l.label === 'Team' ? '👥' : '›'}</span>
-                  <span>{l.label}</span>
-                  <span className="pml-arrow">→</span>
-                </Link>
-              ))}
-            </div>
-          </div>
+
+          <MobileMoreGroup
+            groupIndex={NAV_MENUS.length}
+            isOpen={openSections.has('__more')}
+            onToggle={() => toggleSection('__more')}
+            onClose={closeAll}
+          />
         </div>
 
-        {/* Mobile footer — NO theme toggle here (it lives in the top bar) */}
+        {/* Mobile footer */}
         <div className="pp-mobile-footer">
           {isLoggedIn
             ? <button className="pp-mobile-signout-btn" onClick={handleLogout}>🚪 Sign Out</button>
@@ -436,7 +537,7 @@ export default function Navbar() {
           height: var(--nav-h, 64px);
           transition: box-shadow 0.4s ease, background 0.4s ease;
           animation: navSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-          overflow: visible; /* MUST be visible — clips dropdowns if hidden */
+          overflow: visible;
         }
         @keyframes navSlideIn {
           from { transform: translateY(-100%); opacity: 0 }
@@ -453,11 +554,10 @@ export default function Navbar() {
         .pp-nav-inner {
           max-width: 1280px; margin: 0 auto; padding: 0 1.5rem;
           display: flex; align-items: center; gap: 0.5rem; height: 100%;
-          flex-wrap: nowrap; min-width: 0;
-          overflow: visible; /* dropdowns must escape */
+          flex-wrap: nowrap; min-width: 0; overflow: visible;
         }
 
-        /* ── Logo — never shrinks ─────────────────────────────────────── */
+        /* ── Logo ─────────────────────────────────────────────────────── */
         .pp-logo {
           display: flex; align-items: center; gap: 0.6rem;
           text-decoration: none; flex-shrink: 0; outline: none;
@@ -499,13 +599,10 @@ export default function Navbar() {
         /* ── Desktop nav ──────────────────────────────────────────────── */
         .pp-desktop-nav {
           display: flex; align-items: center; gap: 0.15rem;
-          flex: 1 1 0; min-width: 0;
-          margin-left: 1.5rem; flex-wrap: nowrap;
-          overflow: visible; /* MUST be visible for dropdowns */
+          flex: 1 1 0; min-width: 0; margin-left: 1.5rem;
+          flex-wrap: nowrap; overflow: visible;
         }
-        .pp-nav-item {
-          position: relative; flex-shrink: 0;
-        }
+        .pp-nav-item { position: relative; flex-shrink: 0; }
         .pp-nav-btn, .pp-nav-link {
           position: relative; color: var(--text2);
           background: none; border: none;
@@ -535,20 +632,13 @@ export default function Navbar() {
 
         /* ── Dropdown ─────────────────────────────────────────────────── */
         .nav-dropdown-menu {
-          position: absolute;
-          top: calc(100% + 0.65rem);
+          position: absolute; top: calc(100% + 0.65rem);
           left: 50%; transform: translateX(-50%);
-          background: var(--modal-bg);
-          border: 1px solid var(--border);
-          border-radius: var(--card-radius, 14px);
-          padding: 0.5rem; min-width: 210px;
-          box-shadow:
-            0 4px 6px rgba(0,0,0,.05),
-            0 20px 50px rgba(0,0,0,.4),
-            0 0 0 1px rgba(255,255,255,.04);
+          background: var(--modal-bg); border: 1px solid var(--border);
+          border-radius: var(--card-radius, 14px); padding: 0.5rem; min-width: 210px;
+          box-shadow: 0 4px 6px rgba(0,0,0,.05), 0 20px 50px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04);
           animation: dropPop 0.22s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-          transform-origin: top center;
-          z-index: 400;
+          transform-origin: top center; z-index: 400;
         }
         .nav-dropdown-menu--right {
           left: auto; right: 0; transform: none; transform-origin: top right;
@@ -609,12 +699,10 @@ export default function Navbar() {
         .nav-dropdown-item:hover .ndi-arrow { opacity: 1; transform: translateX(0) }
         .nav-divider { border: none; border-top: 1px solid var(--border); margin: 0.35rem 0 }
 
-        /* ── Actions — flex row, never wraps ─────────────────────────── */
+        /* ── Actions ──────────────────────────────────────────────────── */
         .pp-nav-actions {
           display: flex; align-items: center; gap: 0.45rem;
-          margin-left: auto;
-          flex-shrink: 0; /* pinned right, never compressed */
-          min-width: 0;
+          margin-left: auto; flex-shrink: 0; min-width: 0;
         }
 
         /* ── Theme toggle ─────────────────────────────────────────────── */
@@ -653,8 +741,7 @@ export default function Navbar() {
         /* ── User pill ────────────────────────────────────────────────── */
         .pp-user-nav-item {
           position: relative; flex-shrink: 0;
-          max-width: 200px; min-width: 0;
-          overflow: visible; /* MUST be visible — clips dropdown if hidden */
+          max-width: 200px; min-width: 0; overflow: visible;
         }
         .pp-user-btn {
           display: flex; align-items: center; gap: 0.45rem;
@@ -664,7 +751,6 @@ export default function Navbar() {
           font-size: 0.84rem; color: var(--text);
           transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
           max-width: 200px; min-width: 0; width: 100%;
-          /* NO overflow:hidden — would clip the dropdown */
         }
         .pp-user-btn:hover, .pp-user-btn.active {
           border-color: var(--accent); background: var(--accent-glow); color: var(--accent);
@@ -693,8 +779,7 @@ export default function Navbar() {
         }
         .pp-username {
           min-width: 0; flex: 1 1 auto;
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-          font-weight: 500;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;
         }
         .pp-user-btn .pp-chevron--user { flex-shrink: 0 }
 
@@ -751,12 +836,14 @@ export default function Navbar() {
         }
         .pp-mobile-backdrop.visible { opacity: 1; pointer-events: auto }
 
-        /* ── Mobile nav drawer ────────────────────────────────────────── */
+        /* ══════════════════════════════════════════════════════════════
+           MOBILE NAV DRAWER
+        ══════════════════════════════════════════════════════════════ */
         .pp-mobile-nav {
           display: none; position: fixed; top: 0; right: 0; bottom: 0;
-          width: min(320px, 85vw); background: var(--modal-bg, #0c1829);
+          width: min(320px, 88vw); background: var(--modal-bg, #0c1829);
           border-left: 1px solid var(--border); z-index: 350;
-          flex-direction: column; overflow-y: auto;
+          flex-direction: column; overflow-y: auto; overflow-x: hidden;
           transform: translateX(105%);
           transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
           box-shadow: -20px 0 60px rgba(0,0,0,.5);
@@ -767,18 +854,23 @@ export default function Navbar() {
           );
         }
         .pp-mobile-nav.open { transform: translateX(0) }
+
+        /* Header bar */
         .pp-mobile-header {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 1.2rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+          padding: 1.1rem 1.2rem; border-bottom: 1px solid var(--border);
+          flex-shrink: 0; position: sticky; top: 0; z-index: 2;
+          background: inherit;
+          backdrop-filter: blur(12px);
         }
         .pp-mobile-logo {
-          font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem;
+          font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem;
           background: linear-gradient(110deg, var(--accent), #ffd97a);
           -webkit-background-clip: text; background-clip: text; color: transparent;
           display: flex; align-items: center; gap: 0.5rem;
         }
         .pp-mobile-close {
-          width: 34px; height: 34px; background: var(--surface);
+          width: 32px; height: 32px; background: var(--surface);
           border: 1px solid var(--border); color: var(--text2);
           border-radius: 50%; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
@@ -789,12 +881,18 @@ export default function Navbar() {
           background: var(--danger, #ef4444); border-color: var(--danger, #ef4444);
           color: #fff; transform: rotate(90deg);
         }
+
+        /* User greeting card */
         .pp-mobile-user {
           display: flex; align-items: center; gap: 0.85rem;
-          padding: 1rem 1.25rem; background: var(--accent-glow);
+          padding: 0.9rem 1.2rem;
+          background: linear-gradient(135deg,
+            rgba(var(--accent-rgb, 250, 180, 40), .08) 0%,
+            rgba(var(--accent-rgb, 250, 180, 40), .03) 100%
+          );
           border-bottom: 1px solid var(--border);
-          animation: slideInFromRight 0.4s ease both; animation-delay: 0.05s;
-          overflow: hidden;
+          animation: slideInFromRight 0.4s ease both;
+          animation-delay: 0.05s;
         }
         .pp-mobile-user-info { min-width: 0; overflow: hidden; flex: 1 }
         .pp-mobile-avatar {
@@ -803,62 +901,139 @@ export default function Navbar() {
           display: flex; align-items: center; justify-content: center;
           font-size: 0.9rem; font-weight: 700; color: #07101f;
           flex-shrink: 0; overflow: hidden;
+          box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 250, 180, 40), .25);
         }
         .pp-mobile-avatar img { width: 100%; height: 100%; object-fit: cover }
         .pp-mobile-username {
-          font-size: 0.92rem; font-weight: 700; color: var(--text);
+          font-size: 0.88rem; font-weight: 700; color: var(--text);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .pp-mobile-useremail {
-          font-size: 0.72rem; color: var(--text2);
+          font-size: 0.7rem; color: var(--text2);
           overflow: hidden; text-overflow: ellipsis;
-          white-space: nowrap; max-width: 100%;
+          white-space: nowrap; max-width: 100%; margin-top: 1px;
         }
+
+        /* Body — scrollable section list */
         .pp-mobile-body {
-          flex: 1; padding: 1rem 0.85rem;
-          display: flex; flex-direction: column; gap: 0.5rem;
+          flex: 1; padding: 0.75rem 0.85rem 1rem;
+          display: flex; flex-direction: column; gap: 0.35rem;
         }
+
+        /* ── Collapsible Group ── */
         .pp-mobile-group {
-          animation: slideInFromRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-          animation-delay: calc(0.08s + var(--group-i, 0) * 0.06s);
+          border-radius: 14px;
+          border: 1px solid var(--border);
+          overflow: hidden;
+          background: rgba(255,255,255,0.025);
+          transition: border-color 0.2s, background 0.2s;
+          animation: slideInFromRight 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+          animation-delay: calc(0.07s + var(--group-i, 0) * 0.07s);
+        }
+        .pp-mobile-group.is-open {
+          border-color: rgba(var(--accent-rgb, 250, 180, 40), .28);
+          background: rgba(var(--accent-rgb, 250, 180, 40), .03);
         }
         @keyframes slideInFromRight {
-          from { opacity: 0; transform: translateX(24px) }
+          from { opacity: 0; transform: translateX(20px) }
           to   { opacity: 1; transform: translateX(0) }
         }
-        .pp-mobile-group-label {
-          font-size: 0.68rem; font-weight: 700; color: var(--text2);
-          text-transform: uppercase; letter-spacing: 0.1em;
-          padding: 0.4rem 0.6rem 0.3rem;
-          display: flex; align-items: center; gap: 0.4rem;
+
+        /* Toggle button (the group header) */
+        .pp-mobile-group-toggle {
+          width: 100%; display: flex; align-items: center; gap: 0.6rem;
+          padding: 0.82rem 1rem;
+          background: none; border: none; cursor: pointer;
+          font-family: 'Outfit', sans-serif;
+          transition: background 0.15s;
         }
-        .pp-mobile-group-items { display: flex; flex-direction: column; gap: 0.15rem }
+        .pp-mobile-group-toggle:hover {
+          background: rgba(var(--accent-rgb, 250, 180, 40), .05);
+        }
+        .pmg-icon {
+          font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0;
+          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .pp-mobile-group.is-open .pmg-icon { transform: scale(1.15) }
+        .pmg-label {
+          font-size: 0.9rem; font-weight: 700; color: var(--text);
+          flex: 1; text-align: left; letter-spacing: 0.01em;
+        }
+        .pp-mobile-group.is-open .pmg-label { color: var(--accent) }
+
+        /* Item count badge */
+        .pmg-count {
+          font-size: 0.68rem; font-weight: 700;
+          background: rgba(var(--accent-rgb, 250, 180, 40), .12);
+          color: var(--accent); border-radius: 2rem;
+          padding: 0.1rem 0.5rem; letter-spacing: 0.02em;
+          border: 1px solid rgba(var(--accent-rgb, 250, 180, 40), .2);
+          transition: background 0.2s;
+        }
+        .pp-mobile-group.is-open .pmg-count {
+          background: rgba(var(--accent-rgb, 250, 180, 40), .22);
+        }
+
+        /* Animated chevron */
+        .pmg-chevron {
+          display: flex; align-items: center; justify-content: center;
+          color: var(--text2); flex-shrink: 0;
+          transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s;
+        }
+        .pp-mobile-group.is-open .pmg-chevron {
+          transform: rotate(180deg);
+          color: var(--accent);
+        }
+
+        /* Collapsible body — smooth height transition */
+        .pp-mobile-group-body {
+          overflow: hidden;
+          transition: max-height 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: max-height;
+        }
+
+        /* Divider line separating toggle from items */
+        .pp-mobile-group.is-open .pp-mobile-group-body {
+          border-top: 1px solid rgba(var(--accent-rgb, 250, 180, 40), .1);
+        }
+
+        /* Items container */
+        .pp-mobile-group-items {
+          display: flex; flex-direction: column; gap: 0;
+          padding: 0.4rem 0.5rem 0.5rem;
+        }
+
+        /* Individual link */
         .pp-mobile-link {
-          display: flex; align-items: center; gap: 0.7rem;
-          padding: 0.62rem 0.75rem; border-radius: 10px; color: var(--text);
-          font-size: 0.93rem; text-decoration: none; font-weight: 500;
-          transition: background 0.15s, color 0.15s, transform 0.15s;
-          animation: fadeInLink 0.4s ease both;
-          animation-delay: calc(0.12s + var(--group-i, 0) * 0.06s + var(--link-i, 0) * 0.03s);
+          display: flex; align-items: center; gap: 0.65rem;
+          padding: 0.6rem 0.65rem; border-radius: 10px; color: var(--text2);
+          font-size: 0.875rem; text-decoration: none; font-weight: 500;
+          transition: background 0.15s, color 0.15s, transform 0.18s;
+          font-family: 'Outfit', sans-serif;
         }
-        @keyframes fadeInLink {
-          from { opacity: 0; transform: translateX(12px) }
-          to   { opacity: 1; transform: translateX(0) }
+        .pp-mobile-link:hover {
+          background: rgba(var(--accent-rgb, 250, 180, 40), .09);
+          color: var(--accent); transform: translateX(4px);
         }
-        .pp-mobile-link:hover { background: var(--accent-glow); color: var(--accent); transform: translateX(4px) }
-        .pml-icon { font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0 }
+        .pml-icon {
+          font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .pp-mobile-link:hover .pml-icon { transform: scale(1.18) }
+        .pml-label { flex: 1 }
         .pml-arrow {
-          margin-left: auto; font-size: 0.8rem; color: var(--accent);
-          opacity: 0; transform: translateX(-4px);
-          transition: opacity 0.15s, transform 0.15s;
+          margin-left: auto; font-size: 0.75rem; color: var(--accent);
+          opacity: 0; transform: translateX(-5px);
+          transition: opacity 0.15s, transform 0.18s;
         }
         .pp-mobile-link:hover .pml-arrow { opacity: 1; transform: translateX(0) }
 
-        /* Mobile footer — sign out / sign in only (theme toggle is in top bar) */
+        /* Mobile footer */
         .pp-mobile-footer {
-          padding: 1rem 1.25rem 1.5rem; border-top: 1px solid var(--border);
-          flex-shrink: 0;
-          animation: slideInFromRight 0.5s ease both; animation-delay: 0.35s;
+          padding: 0.85rem 1.2rem 1.4rem;
+          border-top: 1px solid var(--border); flex-shrink: 0;
+          animation: slideInFromRight 0.5s ease both;
+          animation-delay: 0.38s;
         }
         .pp-mobile-signout-btn, .pp-mobile-signin-btn {
           width: 100%; padding: 0.72rem 1rem; border-radius: 12px;
@@ -895,19 +1070,13 @@ export default function Navbar() {
           .pp-hamburger { display: flex }
           .pp-mobile-nav { display: flex }
           .pp-mobile-backdrop { display: block }
-
-          /* On mobile, collapse the user pill to icon-only */
           .pp-username { display: none }
           .pp-chevron--user { display: none }
           .pp-user-btn {
-            padding: 0.25rem;
-            border-radius: 50%;
-            width: 38px; height: 38px;
-            justify-content: center;
+            padding: 0.25rem; border-radius: 50%;
+            width: 38px; height: 38px; justify-content: center;
           }
           .pp-user-nav-item { max-width: 38px }
-
-          /* Tighten action gap so hamburger is always visible */
           .pp-nav-actions { gap: 0.35rem }
           .pp-nav-inner { padding: 0 1rem }
         }
@@ -916,13 +1085,10 @@ export default function Navbar() {
         @media (max-width: 600px) {
           .pp-logo-text { font-size: 1.05rem }
           .pp-logo-text small { display: none }
-          /* Hide sign-in label, keep icon only */
           .pp-signin-label { display: none }
           .pp-signin-btn {
-            padding: 0.45rem 0.65rem;
-            border-radius: 50%;
-            width: 38px; height: 38px;
-            justify-content: center;
+            padding: 0.45rem 0.65rem; border-radius: 50%;
+            width: 38px; height: 38px; justify-content: center;
           }
         }
 
@@ -930,7 +1096,6 @@ export default function Navbar() {
         @media (max-width: 400px) {
           .pp-logo-mark { font-size: 1.35rem }
           .pp-logo-text { font-size: 0.95rem }
-          /* At very small sizes hide sign-in entirely; user can sign in from drawer */
           .pp-signin-btn { display: none }
         }
 
@@ -943,7 +1108,9 @@ export default function Navbar() {
           }
           .pp-nav, .pp-mobile-nav, .pp-mobile-close, .pp-hamburger,
           .ham-line, .pp-nav-btn, .pp-nav-link, .nav-dropdown-item,
-          .pp-mobile-link { transition-duration: 0.01ms !important }
+          .pp-mobile-link, .pp-mobile-group-body, .pmg-chevron {
+            transition-duration: 0.01ms !important;
+          }
         }
       `}</style>
     </>
