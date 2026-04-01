@@ -20,6 +20,38 @@ const TABS = [
 const PH = 'https://placehold.co/342x513/07101f/f5c542?text=No+Poster';
 
 // ════════════════════════════════════════════════════════════════════════════
+//  FIX: Retry helper with exponential back-off
+//  Handles 429 (Too Many Requests) and 503 (Service Waking Up) gracefully.
+//  maxRetries=3, starting delay=4s, doubling each attempt → 4s, 8s, 16s.
+// ════════════════════════════════════════════════════════════════════════════
+async function fetchWithRetry(url, { maxRetries = 3, baseDelay = 4000, onRetry } = {}) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await api.get(url);
+    } catch (err) {
+      const status = err.response?.status;
+      const isRetryable = status === 429 || status === 503 || err.code === 'ECONNABORTED';
+
+      if (!isRetryable || attempt >= maxRetries) throw err;
+
+      // Honour Retry-After header if present (in seconds), else use back-off
+      const retryAfterHeader = err.response?.headers?.['retry-after'];
+      const retryAfterBody   = err.response?.data?.retryAfter;
+      const wait = retryAfterHeader
+        ? parseInt(retryAfterHeader, 10) * 1000
+        : retryAfterBody
+          ? retryAfterBody * 1000
+          : baseDelay * Math.pow(2, attempt);
+
+      attempt++;
+      if (onRetry) onRetry(attempt, Math.round(wait / 1000), status);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  SUB-COMPONENTS
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -245,6 +277,24 @@ function ItemCard({ tab, item, index, onAddMovie, isInWatchlist }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  FIX: Waking-up banner shown during retries
+// ════════════════════════════════════════════════════════════════════════════
+function RetryBanner({ attempt, waitSec }) {
+  return (
+    <div className="rp2-retry-banner">
+      <span className="rp2-retry-spinner" />
+      <span>
+        Service is waking up… retrying in <strong>{waitSec}s</strong>
+        <span className="rp2-retry-dots">
+          <span /><span /><span />
+        </span>
+      </span>
+      <span className="rp2-retry-attempt">attempt {attempt}</span>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ════════════════════════════════════════════════════════════════════════════
 export default function RecommendPage() {
@@ -257,60 +307,63 @@ export default function RecommendPage() {
   const [cache,      setCache]      = useState({});
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
+  // FIX: retry state for waking-up banner
+  const [retryInfo,  setRetryInfo]  = useState(null); // { attempt, waitSec }
 
-  // ── FIX: use a ref to track in-flight requests and avoid double-fetch ──────
   const fetchingRef = useRef({});
 
   const fetchTab = useCallback(async (tab) => {
-    // ── FIX 1: Skip if already cached ─────────────────────────────────────
-    setCache((prev) => {
-      if (prev[tab]) return prev; // trigger no state update needed
-      return prev;
-    });
-
-    // ── FIX 2: Read cache synchronously via ref to avoid stale closure ─────
-    // We use a functional check instead of capturing `cache` in closure
-    setCache((prev) => {
-      if (prev[tab] !== undefined) return prev; // already have data, bail
-      return prev;
-    });
-
-    // Check via a separate flag to avoid double fetch
     if (fetchingRef.current[tab]) return;
     fetchingRef.current[tab] = true;
 
     setLoading(true);
     setError('');
+    setRetryInfo(null);
 
     try {
-      const { data } = await api.get(`/recommend/${tab}`);
+      // FIX: use fetchWithRetry instead of bare api.get
+      // Shows the retry banner on 429 / 503 / timeout
+      const { data } = await fetchWithRetry(`/recommend/${tab}`, {
+        maxRetries: 3,
+        baseDelay:  4000,
+        onRetry: (attempt, waitSec, status) => {
+          console.log(`[RecommendPage] ${status} on /${tab} — retry ${attempt} in ${waitSec}s`);
+          setRetryInfo({ attempt, waitSec });
+        },
+      });
+
+      setRetryInfo(null);
       setCache((prev) => ({
         ...prev,
         [tab]: data.recommendations || [],
       }));
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to load recommendations.';
+      setRetryInfo(null);
+      const status = err.response?.status;
+
       if (err.response?.data?.needsOnboarding) {
         setError('Please complete your taste profile first.');
+      } else if (status === 429) {
+        setError('Service is busy right now. Please wait a moment and try again.');
+      } else if (status === 503 || err.code === 'ECONNABORTED') {
+        setError('Recommendation service is still starting up. Please retry in 30 seconds.');
       } else {
+        const msg = err.response?.data?.message || 'Failed to load recommendations.';
         setError(msg);
       }
-      // ── FIX 3: Reset flag on error so user can retry ───────────────────
+      // Reset flag on error so user can manually retry by re-clicking the tab
       fetchingRef.current[tab] = false;
     } finally {
       setLoading(false);
     }
-  }, []); // no deps needed — fetchingRef and setCache are stable
+  }, []);
 
   useEffect(() => {
-    // ── FIX 4: Only fetch if not already cached ────────────────────────────
     setCache((prev) => {
       if (prev[activeTab] !== undefined) {
-        // Already cached — just ensure loading is false
         setLoading(false);
         return prev;
       }
-      // Not cached — trigger fetch
       fetchTab(activeTab);
       return prev;
     });
@@ -319,6 +372,20 @@ export default function RecommendPage() {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setError('');
+    setRetryInfo(null);
+  };
+
+  // FIX: manual retry — clears the fetch-lock so the tab refetches
+  const handleRetry = () => {
+    fetchingRef.current[activeTab] = false;
+    setCache((prev) => {
+      const next = { ...prev };
+      delete next[activeTab];
+      return next;
+    });
+    setError('');
+    setRetryInfo(null);
+    fetchTab(activeTab);
   };
 
   const handleAddMovie = async (movie) => {
@@ -377,13 +444,23 @@ export default function RecommendPage() {
             ))}
           </div>
 
+          {/* FIX: Retry/waking-up banner */}
+          {retryInfo && (
+            <RetryBanner attempt={retryInfo.attempt} waitSec={retryInfo.waitSec} />
+          )}
+
           {/* Error state */}
           {error && !loading && (
             <div className="rp2-error">
               <span>⚠️ {error}</span>
-              {error.includes('taste profile') && (
+              {error.includes('taste profile') ? (
                 <button className="rp2-error-link" onClick={() => navigate('/welcome')}>
                   Set up preferences →
+                </button>
+              ) : (
+                // FIX: Show retry button for network/rate-limit errors
+                <button className="rp2-error-link" onClick={handleRetry}>
+                  Try again →
                 </button>
               )}
             </div>
@@ -515,6 +592,37 @@ export default function RecommendPage() {
           background: color-mix(in srgb, var(--accent) 15%, transparent);
           border-color: var(--accent);
           color: var(--accent);
+        }
+
+        /* ── FIX: Retry banner ── */
+        .rp2-retry-banner {
+          display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+          background:color-mix(in srgb, #f59e0b 8%, transparent);
+          border:1px solid #f59e0b44;
+          color:#fbbf24; border-radius:10px;
+          padding:0.85rem 1.2rem; font-size:0.83rem;
+          margin-bottom:1.5rem;
+          animation: rp2-page-in 0.3s ease both;
+        }
+        .rp2-retry-spinner {
+          width:14px; height:14px; border-radius:50%;
+          border:2px solid rgba(251,191,36,0.25); border-top-color:#fbbf24;
+          animation:rp2-spinit 0.9s linear infinite; flex-shrink:0;
+        }
+        .rp2-retry-attempt {
+          margin-left:auto; font-size:0.72rem; opacity:0.6; font-variant-numeric:tabular-nums;
+        }
+        .rp2-retry-dots { display:inline-flex; gap:3px; margin-left:4px; }
+        .rp2-retry-dots span {
+          width:4px; height:4px; border-radius:50%;
+          background:currentColor; opacity:0.4;
+          animation:rp2-dot-blink 1.4s ease-in-out infinite;
+        }
+        .rp2-retry-dots span:nth-child(2) { animation-delay:0.2s; }
+        .rp2-retry-dots span:nth-child(3) { animation-delay:0.4s; }
+        @keyframes rp2-dot-blink {
+          0%,80%,100% { opacity:0.2; }
+          40%          { opacity:1; }
         }
 
         /* ── Count label ── */
