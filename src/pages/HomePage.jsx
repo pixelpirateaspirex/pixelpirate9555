@@ -168,6 +168,7 @@ function SkeletonCard() {
 
 /* ─────────────────────────────────────────────────────────────
    3-D TILT MOVIE CARD
+   FIX: Image and title now link to /movies for redirect
 ───────────────────────────────────────────────────────────── */
 function MovieCard({ movie, onAdd, inList }) {
   const poster  = (movie.Poster && movie.Poster !== 'N/A') ? movie.Poster : PH_MOVIE;
@@ -204,20 +205,33 @@ function MovieCard({ movie, onAdd, inList }) {
     >
       <motion.div className="card-shine" style={{ background: shine }} />
 
-      <div className="mc-img-wrap">
-        <img src={poster} alt={movie.title} loading="lazy" onError={(e) => { e.target.src = PH_MOVIE; }} />
-        <motion.div className="mc-overlay" initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.22 }}>
-          <a href={jwUrl} target="_blank" rel="noopener noreferrer" className="mc-watch-btn">
-            ▶ Where to Watch
-          </a>
-        </motion.div>
-        {movie.genre && (
-          <div className="mc-genre-tag">{movie.genre}</div>
-        )}
-      </div>
+      {/* FIX: Wrap image area with Link to /movies */}
+      <Link to="/movies" className="mc-img-link" aria-label={`Browse ${movie.title} in Movies`}>
+        <div className="mc-img-wrap">
+          <img src={poster} alt={movie.title} loading="lazy" onError={(e) => { e.target.src = PH_MOVIE; }} />
+          <motion.div className="mc-overlay" initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.22 }}>
+            {/* Stop propagation so "Where to Watch" opens JustWatch, not /movies */}
+            <a
+              href={jwUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mc-watch-btn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              ▶ Where to Watch
+            </a>
+          </motion.div>
+          {movie.genre && (
+            <div className="mc-genre-tag">{movie.genre}</div>
+          )}
+        </div>
+      </Link>
 
       <div className="mc-body">
-        <div className="mc-title">{movie.title}</div>
+        {/* FIX: Title also links to /movies */}
+        <Link to="/movies" className="mc-title-link">
+          <div className="mc-title">{movie.title}</div>
+        </Link>
         {movie.imdbRating && movie.imdbRating !== 'N/A' && (
           <div className="mc-rating">⭐ {movie.imdbRating} · {movie.Year || ''}</div>
         )}
@@ -961,17 +975,24 @@ useEffect(() => {
           70% { box-shadow: 0 0 0 8px rgba(245,197,66,0); }
           100%{ box-shadow: 0 0 0 0 rgba(245,197,66,0); }
         }
+
+        /* ── FIX: hero-heading — fluid font with safe mobile floor ── */
         .hero-heading {
           font-family: 'Syne', sans-serif;
-          font-size: clamp(2.4rem, 6vw, 4.8rem);
+          font-size: clamp(1.85rem, 6vw, 4.8rem);
           font-weight: 800; line-height: 1.08;
           letter-spacing: -2px; margin-bottom: 1.2rem; color: var(--text, #fff);
+          overflow-wrap: break-word; word-break: break-word;
         }
+
         .hero-accent {
           background: linear-gradient(110deg, var(--accent, #f5c542) 30%, #ffd97a, #f5c542);
           background-size: 200% auto;
           -webkit-background-clip: text; background-clip: text; color: transparent;
           animation: shimmerText 3s linear infinite;
+          /* FIX: allow wrapping on very narrow viewports */
+          max-width: 100%;
+          white-space: normal;
         }
         @keyframes shimmerText {
           0%   { background-position: 0% center; }
@@ -984,10 +1005,9 @@ useEffect(() => {
           max-width: 580px; margin: 0 auto 2.8rem; line-height: 1.75; min-height: 2.8em;
         }
 
-        /* ── Hero CTAs — both match primary style; music overrides to green ── */
+        /* ── Hero CTAs ── */
         .hero-ctas { display: flex; gap: 1.1rem; justify-content: center; flex-wrap: wrap; }
         .hero-cta  { padding: 0.9rem 2.1rem; font-size: 1rem; }
-        
 
         .scroll-cue {
           position: absolute; bottom: 1.8rem; left: 50%; transform: translateX(-50%);
@@ -1026,7 +1046,7 @@ useEffect(() => {
           color: var(--text2, rgba(255,255,255,0.5)); margin-top: 5px; letter-spacing: 0.05em;
         }
 
-        /* ── Section headers — no section numbers ── */
+        /* ── Section headers ── */
         .home-section { padding: 4rem 0; }
         .section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
         .section-title {
@@ -1081,6 +1101,15 @@ useEffect(() => {
 
         /* ── Movie card ── */
         .media-card { overflow: hidden; cursor: default; position: relative; border-radius: var(--card-radius, 12px); }
+
+        /* FIX: Image link — block display, no underline, full width */
+        .mc-img-link {
+          display: block;
+          text-decoration: none;
+          color: inherit;
+          cursor: pointer;
+        }
+
         .mc-img-wrap { position: relative; overflow: hidden; }
         .mc-img-wrap img {
           width: 100%; display: block; aspect-ratio: 2/3; object-fit: cover;
@@ -1097,6 +1126,7 @@ useEffect(() => {
           background: linear-gradient(135deg, #e50914, #c2000f); color: #fff;
           padding: 0.3rem 0.8rem; border-radius: 2rem; font-size: 0.7rem;
           font-weight: 700; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s;
+          position: relative; z-index: 2;
         }
         .mc-watch-btn:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(229,9,20,0.45); }
         .mc-genre-tag {
@@ -1107,10 +1137,22 @@ useEffect(() => {
           border-radius: 2rem; letter-spacing: 0.05em; text-transform: uppercase;
         }
         .mc-body { padding: 0.9rem; }
+
+        /* FIX: Title link — inherit color, no underline; accent on hover */
+        .mc-title-link {
+          display: block;
+          text-decoration: none;
+          color: inherit;
+        }
+        .mc-title-link:hover .mc-title {
+          color: var(--accent, #f5c542);
+        }
+
         .mc-title {
           font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.83rem;
           line-height: 1.3; margin-bottom: 0.28rem;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          transition: color 0.2s ease;
         }
         .mc-rating { font-size: 0.72rem; color: var(--text2); margin-bottom: 0.5rem; }
         .mc-add-btn {
@@ -1141,7 +1183,7 @@ useEffect(() => {
         .fc-desc  { font-size: 0.82rem; color: var(--text2); line-height: 1.58; flex: 1; }
         .fc-arrow { color: var(--accent); font-size: 1.1rem; margin-top: 0.35rem; }
 
-        /* ── CTA Banner — button pinned to right on desktop ── */
+        /* ── CTA Banner ── */
         .cta-banner {
           background: var(--bg2, rgba(255,255,255,0.04));
           border: 1px solid rgba(245,197,66,0.22); border-radius: var(--card-radius, 12px);
@@ -1162,7 +1204,6 @@ useEffect(() => {
           position: relative; z-index: 1;
           display: flex; align-items: center; gap: 1.5rem; width: 100%;
         }
-        /* spacer fills remaining width, pushing action button to the far right */
         .cta-spacer { flex: 1 1 0%; min-width: 0; }
         .cta-icon  { font-size: 2.6rem; flex-shrink: 0; }
         .cta-text  { flex-shrink: 0; }
@@ -1209,14 +1250,14 @@ useEffect(() => {
         }
         @media (max-width: 680px) {
           .mv-grid { grid-template-columns: 1fr; }
-          /* CTA stacks vertically; spacer hidden; button full-width */
           .cta-content { flex-wrap: wrap; }
           .cta-spacer  { display: none; }
           .cta-action-btn { width: 100%; text-align: center; }
           .hero-ctas { flex-direction: column; align-items: center; gap: 0.8rem; }
           .hero-cta  { width: 100%; max-width: 280px; justify-content: center; }
           .features-grid { grid-template-columns: 1fr 1fr; gap: 0.9rem; }
-          .hero-heading { letter-spacing: -1px; }
+          /* FIX: Reduce hero heading size on mobile so "Entertainment" fits */
+          .hero-heading { letter-spacing: -0.5px; font-size: clamp(1.55rem, 7.5vw, 2.2rem); }
           .section-header { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
           .cta-banner { padding: 1.6rem 1.4rem; }
           .home-section { padding: 2.8rem 0; }
@@ -1226,6 +1267,8 @@ useEffect(() => {
           .features-grid { grid-template-columns: 1fr; }
           .strip-inner .media-card, .skeleton-card { min-width: 140px; }
           .hero-badge { font-size: 0.72rem; padding: 0.3rem 0.85rem; }
+          /* FIX: Further reduce on very small screens */
+          .hero-heading { font-size: clamp(1.25rem, 8.5vw, 1.55rem); letter-spacing: 0; }
           .cta-title { font-size: 1rem; }
           .mv-card { padding: 1.5rem 1.2rem; }
           .faq-item { padding: 1rem 1.2rem; }
