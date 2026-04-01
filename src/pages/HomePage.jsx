@@ -987,13 +987,7 @@ useEffect(() => {
         /* ── Hero CTAs — both match primary style; music overrides to green ── */
         .hero-ctas { display: flex; gap: 1.1rem; justify-content: center; flex-wrap: wrap; }
         .hero-cta  { padding: 0.9rem 2.1rem; font-size: 1rem; }
-        .hero-cta--music {
-          background: linear-gradient(135deg, #f5c542 0%, #f5c542 100%) !important;
-          border-color: transparent !important;
-        }
-        .hero-cta--music:hover {
-          background: linear-gradient(135deg, #d4a017 0%, #d4a017 100%) !important;
-        }
+        
 
         .scroll-cue {
           position: absolute; bottom: 1.8rem; left: 50%; transform: translateX(-50%);
